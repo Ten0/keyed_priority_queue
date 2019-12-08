@@ -20,18 +20,18 @@ keyed_priority_queue = "0.1.*"
 The example of code:
 
 ```rust
-use keyed_priority_queue::KeyedPriorityQueue;
+use keyed_priority_queue::HashKeyedPriorityQueue;
 
-let mut queue = KeyedPriorityQueue::new();
+let mut queue = HashKeyedPriorityQueue::new();
 
 // Currently queue is empty
 assert_eq!(queue.peek(), None);
 
-queue.push("Second", 4);
-queue.push("Third", 3);
-queue.push("First", 5);
-queue.push("Fourth", 2);
-queue.push("Fifth", 1);
+queue.set("Second", 4);
+queue.set("Third", 3);
+queue.set("First", 5);
+queue.set("Fourth", 2);
+queue.set("Fifth", 1);
 
 // Peek return references to most important pair.
 assert_eq!(queue.peek(), Some((&"First", &5)));
@@ -50,13 +50,13 @@ for (key, priority) in queue_clone{
 // Popping always will return the biggest element
 assert_eq!(queue.pop(), Some(("First", 5)));
 // We can change priority of item by key:
-queue.set_priority(&"Fourth", 10);
+queue.update_priority(&"Fourth", 10);
 // And get it
 assert_eq!(queue.get_priority(&"Fourth"), Some(&10));
 // Now biggest element is Fourth
 assert_eq!(queue.pop(), Some(("Fourth", 10)));
 // We can also decrease priority!
-queue.set_priority(&"Second", -1);
+queue.update_priority(&"Second", -1);
 assert_eq!(queue.pop(), Some(("Third", 3)));
 assert_eq!(queue.pop(), Some(("Fifth", 1)));
 assert_eq!(queue.pop(), Some(("Second", -1)));
@@ -67,4 +67,3 @@ assert_eq!(queue.pop(), None);
 queue.clear();
 assert!(queue.is_empty());
 ```
-

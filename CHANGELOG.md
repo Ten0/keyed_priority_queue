@@ -6,7 +6,7 @@
 
 ## 2019-10-27: 0.1.1
 ### Added
-- Now `KeyedPriorityQueue` implements `Default` trait
+- Now `HashKeyedPriorityQueue` implements `Default` trait
 
 ### Changed
 - Some clippy fixes
