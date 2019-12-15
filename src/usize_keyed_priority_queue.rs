@@ -232,14 +232,24 @@ impl<TPriority: Ord> KeyedPriorityQueue<TPriority> {
                 if parent.priority < (*entry_initially_at_pos.as_ptr()).priority {
                     let position_ptr = (self.data.get_unchecked(position) as *const _) as *mut _;
                     copy_nonoverlapping(parent, position_ptr, 1);
-                    self.id_to_heappos[parent.key] = position;
+                    match self.id_to_heappos.get_mut(parent.key) {
+                        Some(parent_pos) => *parent_pos = position,
+                        None => {
+                            copy_nonoverlapping(
+                                entry_initially_at_pos.as_ptr(),
+                                self.data.get_unchecked_mut(parent_pos),
+                                1,
+                            );
+                            panic!("Key out of bounds");
+                        }
+                    }
                     position = parent_pos;
                 } else {
                     break;
                 }
             }
             copy_nonoverlapping(
-                entry_initially_at_pos.as_mut_ptr(),
+                entry_initially_at_pos.as_ptr(),
                 self.data.get_unchecked_mut(position),
                 1,
             );
@@ -288,14 +298,24 @@ impl<TPriority: Ord> KeyedPriorityQueue<TPriority> {
                 if (*entry_initially_at_pos.as_ptr()).priority < max_child_val.priority {
                     let position_ptr = (self.data.get_unchecked(position) as *const _) as *mut _;
                     copy_nonoverlapping(max_child_val, position_ptr, 1);
-                    self.id_to_heappos[max_child_val.key] = position;
+                    match self.id_to_heappos.get_mut(max_child_val.key) {
+                        Some(max_child_pos) => *max_child_pos = position,
+                        None => {
+                            copy_nonoverlapping(
+                                entry_initially_at_pos.as_ptr(),
+                                self.data.get_unchecked_mut(max_child_idx),
+                                1,
+                            );
+                            panic!("Key out of bounds");
+                        }
+                    }
                     position = max_child_idx;
                 } else {
                     break;
                 }
             }
             copy_nonoverlapping(
-                entry_initially_at_pos.as_mut_ptr(),
+                entry_initially_at_pos.as_ptr(),
                 self.data.get_unchecked_mut(position),
                 1,
             );
