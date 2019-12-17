@@ -1,0 +1,14 @@
+[package]
+name = "keyed_pq_perf_test"
+version = "0.1.0"
+authors = ["Thomas BESSOU <thomas.bessou@hotmail.fr>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+keyed_priority_queue = { path = ".." }
+keyed_priority_queue_orig = { package = "keyed_priority_queue", version = "0.1.2" }
+priority-queue = "0.6.0"
+rand = "0.7.2"
+easy_io = { git = "https://github.com/Ten0/EasyIO.rs.git" }
