@@ -215,112 +215,52 @@ impl<TPriority: Ord> KeyedPriorityQueue<TPriority> {
     }
 
     fn heapify_up(&mut self, mut position: usize) {
-        // We here implement a rolling "swap" to divide by 2 the number of instructions.
-        // This is done in a similar way to the implementation of swap:
-        // https://doc.rust-lang.org/std/ptr/fn.swap.html
-        unsafe {
-            use std::{mem::MaybeUninit, ptr::copy_nonoverlapping};
-            let mut entry_initially_at_pos = MaybeUninit::uninit();
-            copy_nonoverlapping(
-                self.data.get(position).expect("Out of index in heapify_up"),
-                entry_initially_at_pos.as_mut_ptr(),
-                1,
-            );
-            while position > 0 {
-                let parent_pos = (position - 1) >> 1;
-                let parent = self.data.get_unchecked(parent_pos);
-                if parent.priority < (*entry_initially_at_pos.as_ptr()).priority {
-                    let position_ptr = (self.data.get_unchecked(position) as *const _) as *mut _;
-                    copy_nonoverlapping(parent, position_ptr, 1);
-                    match self.id_to_heappos.get_mut(parent.key) {
-                        Some(parent_pos) => *parent_pos = position,
-                        None => {
-                            copy_nonoverlapping(
-                                entry_initially_at_pos.as_ptr(),
-                                self.data.get_unchecked_mut(parent_pos),
-                                1,
-                            );
-                            panic!("Key out of bounds");
-                        }
-                    }
-                    position = parent_pos;
-                } else {
-                    break;
-                }
+        while position > 0 {
+            let parent_pos = (position - 1) >> 1;
+            let parent = &self.data[parent_pos];
+            if parent.priority < self.data[position].priority {
+                self.id_to_heappos[parent.key] = position;
+                self.data.swap(position, parent_pos);
+                position = parent_pos;
+            } else {
+                break;
             }
-            copy_nonoverlapping(
-                entry_initially_at_pos.as_ptr(),
-                self.data.get_unchecked_mut(position),
-                1,
-            );
-            self.id_to_heappos[(*entry_initially_at_pos.as_ptr()).key] = position;
         }
+        self.id_to_heappos[self.data[position].key] = position;
     }
 
     fn heapify_down(&mut self, mut position: usize) {
-        unsafe {
-            // Similarly to what is done in heapify_up,
-            // We here implement a rolling "swap" to divide by 2 the number of instructions.
-            // This is done in a similar way to the implementation of swap:
-            // https://doc.rust-lang.org/std/ptr/fn.swap.html
-            use std::{mem::MaybeUninit, ptr::copy_nonoverlapping};
-            let mut entry_initially_at_pos = MaybeUninit::uninit();
-            copy_nonoverlapping(
-                self.data
-                    .get(position)
-                    .expect("Out of index in heapify_down"),
-                entry_initially_at_pos.as_mut_ptr(),
-                1,
-            );
-            loop {
-                let (max_child_idx, max_child_val) = {
-                    // Checking that we are in bounds through .get to use the safe interface as much as possible
-                    // and yet not pay the cost of checking bounds twice
-                    let child1_idx = (position << 1) + 1;
-                    match self.data.get(child1_idx) {
-                        Some(child1_val) => {
-                            let child2_idx = child1_idx + 1;
-                            match self.data.get(child2_idx) {
-                                Some(child2_val) => {
-                                    if child2_val.priority < child1_val.priority {
-                                        (child1_idx, child1_val)
-                                    } else {
-                                        (child2_idx, child2_val)
-                                    }
+        loop {
+            let (max_child_idx, max_child_val) = {
+                // Checking that we are in bounds through .get to use the safe interface as much as possible
+                // and yet not pay the cost of checking bounds twice
+                let child1_idx = (position << 1) + 1;
+                match self.data.get(child1_idx) {
+                    Some(child1_val) => {
+                        let child2_idx = child1_idx + 1;
+                        match self.data.get(child2_idx) {
+                            Some(child2_val) => {
+                                if child2_val.priority < child1_val.priority {
+                                    (child1_idx, child1_val)
+                                } else {
+                                    (child2_idx, child2_val)
                                 }
-                                None => (child1_idx, child1_val),
                             }
-                        }
-                        None => break,
-                    }
-                };
-
-                if (*entry_initially_at_pos.as_ptr()).priority < max_child_val.priority {
-                    let position_ptr = (self.data.get_unchecked(position) as *const _) as *mut _;
-                    copy_nonoverlapping(max_child_val, position_ptr, 1);
-                    match self.id_to_heappos.get_mut(max_child_val.key) {
-                        Some(max_child_pos) => *max_child_pos = position,
-                        None => {
-                            copy_nonoverlapping(
-                                entry_initially_at_pos.as_ptr(),
-                                self.data.get_unchecked_mut(max_child_idx),
-                                1,
-                            );
-                            panic!("Key out of bounds");
+                            None => (child1_idx, child1_val),
                         }
                     }
-                    position = max_child_idx;
-                } else {
-                    break;
+                    None => break,
                 }
+            };
+            if self.data[position].priority < max_child_val.priority {
+                self.id_to_heappos[max_child_val.key] = position;
+                self.data.swap(position, max_child_idx);
+                position = max_child_idx;
+            } else {
+                break;
             }
-            copy_nonoverlapping(
-                entry_initially_at_pos.as_ptr(),
-                self.data.get_unchecked_mut(position),
-                1,
-            );
-            self.id_to_heappos[(*entry_initially_at_pos.as_ptr()).key] = position
         }
+        self.id_to_heappos[self.data[position].key] = position;
     }
 }
 
