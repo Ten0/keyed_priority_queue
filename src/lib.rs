@@ -150,6 +150,7 @@
 
 mod usize_keyed_priority_queue;
 pub use usize_keyed_priority_queue::{KeyedPriorityQueue, KeyedPriorityQueueIntoIter};
+mod hole;
 
 use indexmap::IndexSet;
 use std::borrow::Borrow;

@@ -1,3 +1,4 @@
+use crate::hole::Hole;
 use std::cmp::{Ord, Ordering};
 use std::fmt::Debug;
 use std::iter::FromIterator;
@@ -214,113 +215,68 @@ impl<TPriority: Ord> KeyedPriorityQueue<TPriority> {
         Some((result.key, result.priority))
     }
 
-    fn heapify_up(&mut self, mut position: usize) {
+    fn heapify_up(&mut self, position: usize) {
         // We here implement a rolling "swap" to divide by 2 the number of instructions.
-        // This is done in a similar way to the implementation of swap:
-        // https://doc.rust-lang.org/std/ptr/fn.swap.html
-        unsafe {
-            use std::{mem::MaybeUninit, ptr::copy_nonoverlapping};
-            let mut entry_initially_at_pos = MaybeUninit::uninit();
-            copy_nonoverlapping(
-                self.data.get(position).expect("Out of index in heapify_up"),
-                entry_initially_at_pos.as_mut_ptr(),
-                1,
-            );
-            while position > 0 {
-                let parent_pos = (position - 1) >> 1;
-                let parent = self.data.get_unchecked(parent_pos);
-                if parent.priority < (*entry_initially_at_pos.as_ptr()).priority {
-                    let position_ptr = (self.data.get_unchecked(position) as *const _) as *mut _;
-                    copy_nonoverlapping(parent, position_ptr, 1);
-                    match self.id_to_heappos.get_mut(parent.key) {
-                        Some(parent_pos) => *parent_pos = position,
-                        None => {
-                            copy_nonoverlapping(
-                                entry_initially_at_pos.as_ptr(),
-                                self.data.get_unchecked_mut(parent_pos),
-                                1,
-                            );
-                            panic!("Key out of bounds");
-                        }
-                    }
-                    position = parent_pos;
+        // This is done in a similar way to the implementation of BinaryHeap:
+        // https://doc.rust-lang.org/std/collections/struct.BinaryHeap.html
+        let final_position = unsafe {
+            if position >= self.data.len() {
+                panic!(
+                    "Call of heapify up with data len {} and position {}",
+                    self.data.len(),
+                    position
+                );
+            }
+            let mut hole = Hole::new(&mut self.data, position);
+            while hole.position() > 0 {
+                let parent_pos = (hole.position() - 1) >> 1;
+                let parent = hole.get(parent_pos);
+                if parent.priority < hole.element().priority {
+                    self.id_to_heappos[parent.key] = hole.position();
+                    hole.move_to(parent_pos);
                 } else {
                     break;
                 }
             }
-            copy_nonoverlapping(
-                entry_initially_at_pos.as_ptr(),
-                self.data.get_unchecked_mut(position),
-                1,
-            );
-            self.id_to_heappos[(*entry_initially_at_pos.as_ptr()).key] = position;
-        }
+            hole.position()
+        };
+        self.id_to_heappos[self.data[final_position].key] = final_position;
     }
 
-    fn heapify_down(&mut self, mut position: usize) {
-        unsafe {
-            // Similarly to what is done in heapify_up,
-            // We here implement a rolling "swap" to divide by 2 the number of instructions.
-            // This is done in a similar way to the implementation of swap:
-            // https://doc.rust-lang.org/std/ptr/fn.swap.html
-            use std::{mem::MaybeUninit, ptr::copy_nonoverlapping};
-            let mut entry_initially_at_pos = MaybeUninit::uninit();
-            copy_nonoverlapping(
-                self.data
-                    .get(position)
-                    .expect("Out of index in heapify_down"),
-                entry_initially_at_pos.as_mut_ptr(),
-                1,
-            );
+    fn heapify_down(&mut self, position: usize) {
+        let final_position = unsafe {
+            if position >= self.data.len() {
+                panic!(
+                    "Call of heapify down with data len {} and position {}",
+                    self.data.len(),
+                    position
+                );
+            }
+            let mut hole = Hole::new(&mut self.data[..], position);
             loop {
-                let (max_child_idx, max_child_val) = {
-                    // Checking that we are in bounds through .get to use the safe interface as much as possible
-                    // and yet not pay the cost of checking bounds twice
-                    let child1_idx = (position << 1) + 1;
-                    match self.data.get(child1_idx) {
-                        Some(child1_val) => {
-                            let child2_idx = child1_idx + 1;
-                            match self.data.get(child2_idx) {
-                                Some(child2_val) => {
-                                    if child2_val.priority < child1_val.priority {
-                                        (child1_idx, child1_val)
-                                    } else {
-                                        (child2_idx, child2_val)
-                                    }
-                                }
-                                None => (child1_idx, child1_val),
-                            }
-                        }
-                        None => break,
+                let max_child_idx = {
+                    let child1 = hole.position() * 2 + 1;
+                    let child2 = child1 + 1;
+                    if child1 >= hole.data_len() {
+                        break;
+                    }
+                    if child2 >= hole.data_len()
+                        || hole.get(child2).priority < hole.get(child1).priority
+                    {
+                        child1
+                    } else {
+                        child2
                     }
                 };
-
-                if (*entry_initially_at_pos.as_ptr()).priority < max_child_val.priority {
-                    let position_ptr = (self.data.get_unchecked(position) as *const _) as *mut _;
-                    copy_nonoverlapping(max_child_val, position_ptr, 1);
-                    match self.id_to_heappos.get_mut(max_child_val.key) {
-                        Some(max_child_pos) => *max_child_pos = position,
-                        None => {
-                            copy_nonoverlapping(
-                                entry_initially_at_pos.as_ptr(),
-                                self.data.get_unchecked_mut(max_child_idx),
-                                1,
-                            );
-                            panic!("Key out of bounds");
-                        }
-                    }
-                    position = max_child_idx;
-                } else {
+                if hole.element().priority >= hole.get(max_child_idx).priority {
                     break;
                 }
+                self.id_to_heappos[hole.get(max_child_idx).key] = hole.position();
+                hole.move_to(max_child_idx);
             }
-            copy_nonoverlapping(
-                entry_initially_at_pos.as_ptr(),
-                self.data.get_unchecked_mut(position),
-                1,
-            );
-            self.id_to_heappos[(*entry_initially_at_pos.as_ptr()).key] = position
-        }
+            hole.position()
+        };
+        self.id_to_heappos[self.data[final_position].key] = final_position;
     }
 }
 
